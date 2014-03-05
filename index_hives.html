@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>datacity map</title>
+	<script src="js/vendors/d3.v3.min.js"></script>
+	<style>
+		html,body {
+			margin:0;
+			padding:0;
+		}
+		body {
+			background-color: #000;
+			font-family: sans-serif;
+		}
+		svg text {
+			font-family: sans-serif;
+			font-size: 12px;
+		}
+		#map {
+			border:1px solid #666;
+		}
+		.axis line {
+			stroke:#333;
+			stroke-width:1;
+			fill:none;
+		}
+		.axis text {
+			fill:#333;
+			text-anchor:end;
+			stroke:none;
+			font-size: 10px;
+		}
+		circle {
+			fill:#999;
+		}
+		.me circle {
+			fill:gold;
+		}
+		path {
+			fill:none;
+			stroke:#999;
+			stroke-width:1;
+		}
+		.server path {
+			stroke:#8bd8ff;
+			stroke-width:2;
+		}
+		#update {
+			position: absolute;
+			top:10px;
+			right: 10px;
+			color:#999;
+			text-transform: uppercase;
+			text-decoration: none;
+			font-size:10px;
+		}
+	</style>
+</head>
+<body>
+	<div id="map">
+		<a href="#" id="update">update</a>
+	</div>
+	<script>
+
+		var WIDTH=1200,
+			HEIGHT=600;
+
+
+		var positions=[
+			[0.5,0.5],
+			[-0.5,0.5],
+			[-0.5,-0.5],
+			[0.5,-0.5]
+		];
+
+		var servers=function() {
+
+			//-1,1
+
+			var servers=[];
+			var l=4;
+			for(var i=0;i<l;i++) {
+				servers.push({
+					name:"s"+i,
+					users:Math.random(),
+					lag:Math.random(),
+					money:Math.random(),
+					position:positions[i]
+					//position:[-1+Math.random()*2,-1+Math.random()*2]
+					//position:[0.5,0.5]
+
+				})
+			}
+			servers.forEach(function(d){
+				d.original_position=[d.position[0],d.position[1]];
+			})
+			return servers;
+		}();
+
+		console.log("SERVERS",servers)
+
+		var xscale=d3.scale.linear().domain([-1,1]).range([0,WIDTH-0]),
+			yscale=d3.scale.linear().domain([-1,1]).range([0,HEIGHT-0]);
+
+		var svg=d3.select("#map")
+					.append("svg")
+						.attr("width",WIDTH)
+						.attr("height",HEIGHT)
+						.on("click",function(e){
+							var x=d3.mouse(this)[0],
+								y=d3.mouse(this)[1];
+							console.log("POSITION:",xscale.invert(x),yscale.invert(y));
+
+
+
+							updateUserPosition(xscale.invert(x),yscale.invert(y));
+
+							update();
+
+						})
+
+
+		var me=svg.append("g")
+					.attr("class","me")
+					.attr("transform",function(d){
+						return "translate("+xscale(0)+","+yscale(0)+")"
+					})
+
+
+		me.append("circle")
+				.attr("cx",0)
+				.attr("cy",0)
+				.attr("r",20)
+
+		var hives=svg.selectAll("g.server")
+						.data(servers)
+						.enter()
+						.append("g")
+							.attr("class","server")
+							.attr("transform",function(d){
+								return "translate("+xscale(d.position[0])+","+yscale(d.position[1])+")rotate(0)"
+							})
+
+		
+		var innerRadius=10,
+			outerRadius=100;
+
+		var angle = d3.scale.ordinal().domain(d3.range(4)).rangePoints([0, 2 * Math.PI]),
+			radius = d3.scale.linear().range([innerRadius, outerRadius]);
+
+		
+
+		var axis=hives.selectAll(".axis")
+			.data(d3.range(3))
+				.enter().append("g")
+				.attr("class", "axis")
+				.attr("transform", function(d) { return "rotate(" + degrees(angle(d)) + ")"; });
+
+		axis.append("line")
+			.attr("x1", radius.range()[0])
+			.attr("x2", radius.range()[1]);
+
+		axis.append("text")
+			.attr("x",radius.range()[1])
+			.attr("y",0)
+			.attr("dy","-0.2em")
+			.style("text-anchor","end")
+			.text(function(d,i){
+				if(i===0) {
+					return "MONEY";
+				}
+				if(i===1) {
+					return "USERS";
+				}
+				if(i===2) {
+					return "LAG";
+				}
+			})
+
+		hives
+			.selectAll("circle")
+			.data(function(d){
+				//console.log(d)
+				return [
+					projectOnUsersAxis(d.users),
+					projectOnLagAxis(d.lag),
+					projectOnMoneyAxis(d.money)
+				]	
+			})
+			.enter()
+			.append("circle")
+				.attr("cx",function(d){
+					return d.x
+				})
+				.attr("cy",function(d){
+					return d.y
+				})
+				.attr("r",2)
+
+		var line = d3.svg.line()
+				    .x(function(d) { return d.x; })
+				    .y(function(d) { return d.y; })
+				    .interpolate("basis");
+		var line2 = d3.svg.line()
+				    .x(function(d) { return d.x; })
+				    .y(function(d) { return d.y; })
+				    .interpolate("cardinal");
+
+		hives
+			.selectAll("path")
+			.data(function(d) {
+
+
+				return generatePoints(d);
+				
+			})
+			.enter()
+			.append("path")
+				.attr("d",function(d){
+					return line(d);
+				});
+
+
+		var links=svg.append("g");
+
+		links.selectAll("path")
+				.data(servers)
+				.enter()
+				.append("path")
+					.attr("d",function(d) {
+						var points=[
+							{	
+								x:xscale(d.position[0]),
+								y:yscale(d.position[1])
+							},
+							{	
+								x:xscale(d.position[0]/2),
+								y:yscale(d.position[1]/4)
+							},
+							{
+								x:xscale(0),
+								y:yscale(0)
+							}
+						];
+						return line2(points)
+					})
+
+		function generatePoints(d) {
+			var points=[
+				projectOnUsersAxis(d.users),
+				projectOnLagAxis(d.lag),
+				projectOnMoneyAxis(d.money)
+			];
+
+			return [
+				[
+					points[0],
+					{
+						x:points[1].x+(points[0].x-points[1].x)/2,
+						y:(points[0].y+points[1].y)/2*1.5
+					},
+					points[1]
+				],
+
+				[
+					points[1],
+					{
+						x:points[1].x+(points[2].x-points[1].x)/2*0.5,
+						y:(points[2].y+points[1].y)/2
+					},
+					points[2]
+				],
+
+				[
+					points[2],
+					{
+						x:points[2].x+(points[0].x-points[2].x)/2*1.5,
+						y:(points[0].y+points[2].y)/2
+					},
+					points[0]
+				]
+			];
+		}
+
+		function updateDistance(server,position) {
+			servers[server].position=position;
+		}
+
+		function updateUserPosition(x,y) {
+			/*
+			if I move by 0.2,0.2 ->
+			server in 0.4,0.4 -> 0.2,0.2
+			server in -0.4,-0.4 -> -0.6,-0.6
+			*/
+
+			servers.forEach(function(d){
+				//console.log("setting",d.name,"to",(d.original_position[0]-x),"from",d.position[0])
+				d.position[0]=d.original_position[0]-x;
+				d.position[1]=d.original_position[1]-y;
+			})
+
+		}
+
+		function updateValues(server,users,lag,money) {
+			//console.log("updating server",server)
+			servers[server].users=users;
+			servers[server].lag=lag;
+			servers[server].money=money;
+
+			
+
+		}
+
+		function update() {
+
+			hives
+			.selectAll("circle")
+			.data(function(d){
+				//console.log(d)
+				return [
+					projectOnUsersAxis(d.users),
+					projectOnLagAxis(d.lag),
+					projectOnMoneyAxis(d.money)
+				]	
+			})
+				.transition()
+				.duration(1000)
+					.attr("cx",function(d){
+						return d.x
+					})
+					.attr("cy",function(d){
+						return d.y
+					})
+
+			hives
+				.selectAll("path")
+				.data(function(d) {
+					return generatePoints(d);
+				})
+					.transition()
+					.duration(1000)
+					.attr("d",function(d){
+						return line(d);
+					});
+
+			links.selectAll("path")
+					.transition()
+					.duration(1000)
+					.attr("d",function(d) {
+						var points=[
+							{	
+								x:xscale(d.position[0]),
+								y:yscale(d.position[1])
+							},
+							{	
+								x:xscale(d.position[0]/2),
+								y:yscale(d.position[1]/4)
+							},
+							{
+								x:xscale(0),
+								y:yscale(0)
+							}
+						];
+						return line2(points)
+					})
+
+			hives
+				.transition()
+				.duration(1000)
+				.attr("transform",function(d){
+
+					var max=d3.max([d.users,d.lag,d.money]);
+					//console.log([d.users,d.lag,d.money])
+					//console.log("MAX",max)
+					var deg=0;
+
+					var deltaY = yscale.invert(0) - yscale.invert(d.position[1])
+					var deltaX = xscale.invert(0) - xscale.invert(d.position[1])
+					var angleInDegrees = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
+
+
+
+					if(max==d.users) {
+						deg=60;
+						//console.log("max is users")
+					}
+					if(max==d.lag) {
+						deg=60+120+120;
+						//console.log("max is lag")
+					}
+					if(max==d.money) {
+						deg=60+120;
+						//console.log("max is money")
+					}
+					console.log(deltaY,deltaX,angleInDegrees)
+					//angleInDegrees=0;
+					return "translate("+xscale(d.position[0])+","+yscale(d.position[1])+")rotate("+(deg)+")"
+				});
+		}
+		update();
+
+		function randomUpdate() {
+			updateValues(
+				Math.round(Math.random()*(servers.length-1)),
+				Math.random(),
+				Math.random(),
+				Math.random()
+			);
+
+			update();
+
+			//setTimeout(randomUpdate,2000)
+		}
+		
+		d3.select("#update")
+			.on("click",function(){
+				d3.event.preventDefault();
+				randomUpdate();	
+			})
+
+		//randomUpdate();
+
+		function projectOnUsersAxis(value) {
+			radius.domain([0,1]);
+			return {
+				x:radius(value)*Math.cos(deg2rad(30)),
+				y:radius(value)*Math.sin(deg2rad(30))
+			};
+		}
+
+		function projectOnLagAxis(value) {
+			radius.domain([0,1]);
+			return {
+				x:radius(value)*Math.cos(deg2rad(150)),
+				y:radius(value)*Math.sin(deg2rad(150))
+			};
+		}
+
+		function projectOnMoneyAxis(value) {
+			radius.domain([0,1]);
+			return {
+				x:radius(value)*Math.cos(deg2rad(270)),
+				y:radius(value)*Math.sin(deg2rad(270))
+			};
+		}
+
+		function degrees(radians) {
+		  return radians / Math.PI * 180 - 90;
+		}
+
+		function deg2rad(angle) {
+			return (angle / 180) * Math.PI;
+		}
+
+
+
+	</script>
+</body>
+</html>

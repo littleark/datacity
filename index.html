@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>datacity map</title>
+	<script src="js/vendors/d3.v3.min.js"></script>
+	<style>
+		html,body {
+			margin:0;
+			padding:0;
+		}
+		body {
+			background-color: #000;
+			font-family: sans-serif;
+		}
+		svg {
+			border:1px solid #333;
+		}
+		svg text {
+			font-family: sans-serif;
+			font-size: 12px;
+
+		}
+		#map {
+			
+		}
+		.axis line {
+			stroke:#333;
+			stroke-width:1;
+			fill:none;
+		}
+		.axis text {
+			fill:#333;
+			text-anchor:end;
+			stroke:none;
+			font-size: 10px;
+		}
+		.server circle {
+			fill:#999;
+			fill-opacity:0.7;
+		}
+		.me circle {
+			fill:gold;
+		}
+		path {
+			fill:none;
+			stroke:#999;
+			stroke-width:1;
+			stroke-opacity:0.25;
+		}
+		.server path {
+			stroke:#8bd8ff;
+			stroke-width:2;
+		}
+		#update {
+			position: absolute;
+			top:10px;
+			right: 10px;
+			color:#999;
+			text-transform: uppercase;
+			text-decoration: none;
+			font-size:10px;
+		}
+	</style>
+</head>
+<body>
+	<div id="map">
+		<a href="#" id="update">update</a>
+	</div>
+	<script>
+
+		var WIDTH=768,
+			HEIGHT=600; //1024
+
+		var margins={
+			top:30,
+			bottom:30,
+			left:30,
+			right:30
+		};
+
+		var data=function() {
+
+			//-1,1
+
+			var servers=[];
+			var l=10;
+			for(var i=0;i<l;i++) {
+				servers.push({
+					name:"s_h"+i,
+					users:Math.random(), //radius
+					lag:0.66+Math.random()/3, //y
+					money:Math.random() //x
+				})
+			}
+			for(var i=0;i<l*10;i++) {
+				servers.push({
+					name:"s_l"+i,
+					users:Math.random()/8, //radius
+					lag:Math.random()/4, //y
+					money:Math.random() //x
+					//position:[-1+Math.random()*2,-1+Math.random()*2]
+					//position:[0.5,0.5]
+
+				})
+			}
+
+
+			return servers;
+		}();
+
+		console.log("SERVERS",servers)
+
+		var xscale=d3.scale.linear().domain([0,1]).range([0,WIDTH-margins.right-margins.left]).clamp(true),
+			yscale=d3.scale.linear().domain([0,1]).range([HEIGHT-margins.top-margins.bottom,0]).clamp(true),
+			radius=d3.scale.sqrt().domain([0,1]).range([2,30]);
+
+		var svg=d3.select("#map")
+					.append("svg")
+						.attr("width",WIDTH)
+						.attr("height",HEIGHT)
+						.on("click",function(e){
+							var x=d3.mouse(this)[0],
+								y=d3.mouse(this)[1];
+							console.log("POSITION:",xscale.invert(x),yscale.invert(y));
+						})
+						.append("g")
+							.attr("transform","translate("+margins.left+","+margins.top+")");
+
+		var myself={
+			x:0.5,
+			y:0.5
+		};
+
+
+		
+
+		var servers=svg.append("g")
+						.attr("id","servers")
+						
+
+		servers=servers.selectAll("g.server")
+					.data(data)
+					.enter()
+					.append("g")
+						.attr("class","server")
+						.attr("id",function(d){
+							return d.name;
+						})
+						.attr("transform",function(d){
+							return "translate("+xscale(d.money)+","+yscale(d.lag)+")"
+						})
+
+		servers.append("circle")
+					.attr("cx",0)
+					.attr("cy",0)
+					.attr("r",function(d){
+						return radius(d.users)
+					})
+
+		var line = d3.svg.line()
+				    .x(function(d) { return d.x; })
+				    .y(function(d) { return d.y; })
+				    .interpolate("basis");
+
+		var links=svg.append("g")
+					
+
+		links.selectAll("path")
+				.data(data)
+				.enter()
+				.append("path")
+					.attr("d",function(d) {
+						var points=[
+							{	
+								x:xscale(d.money),
+								y:yscale(d.lag)+(d.lag>myself.y?1:-1)*radius(d.users)
+							},
+							{	
+								x:xscale(d.money),
+								y:yscale(myself.y+(d.lag - myself.y)/10)
+							},
+							{
+								x:xscale(myself.x),
+								y:yscale(myself.y)
+							}
+						];
+						return line(points)
+					})
+
+		function updateData() {
+			data.forEach(function(d){
+				var r=Math.random();
+
+				var delta_lag=(d.lag>0.5)?((-0.5 + r)/100):((-0.5 + r)/200);
+				d.lag += delta_lag;
+				d.money += delta_lag*2;
+				d.users += delta_lag*3;
+
+				d.lag=(d.lag>0)?d.lag:0;
+				d.money=(d.money>0)?d.money:0;
+				d.users=(d.users>0)?d.users:0;
+			});
+
+			
+		}
+		function updateViz() {
+			servers
+				.transition()
+				.duration(1000)
+				.ease("none")
+					.attr("transform",function(d){
+						return "translate("+xscale(d.money)+","+yscale(d.lag)+")"
+					})
+					.select("circle")
+						.attr("r",function(d){
+							return radius(d.users)
+						})
+
+			links.selectAll("path")
+				.transition()
+				.duration(1000)
+				.ease("none")
+					.attr("d",function(d) {
+						var points=[
+							{	
+								x:xscale(d.money),
+								y:yscale(d.lag)+(d.lag>myself.y?1:-1)*radius(d.users)
+							},
+							{	
+								x:xscale(d.money),
+								y:yscale(myself.y+(d.lag - myself.y)/10)
+							},
+							{
+								x:xscale(myself.x),
+								y:yscale(myself.y)
+							}
+						];
+						return line(points)
+					})
+		}
+		function update() {
+			updateData();
+			updateViz();
+		}
+
+		function loop() {
+			update();
+			setTimeout(loop,1000)
+		}
+
+
+		var me=svg.append("g")
+					.datum(myself)
+					.attr("class","me")
+					.attr("transform",function(d){
+						return "translate("+xscale(d.x)+","+yscale(d.y)+")"
+					})
+		me.append("circle")
+				.attr("cx",0)
+				.attr("cy",0)
+				.attr("r",20)
+
+		d3.select("#update")
+			.on("click",function(){
+				d3.event.preventDefault();
+				update();	
+			})
+
+	</script>
+</body>
+</html>
