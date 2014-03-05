@@ -14,7 +14,7 @@
 			font-family: sans-serif;
 		}
 		svg {
-			border:1px solid #333;
+			
 		}
 		svg text {
 			font-family: sans-serif;
@@ -22,15 +22,17 @@
 
 		}
 		#map {
-			
+			width:768px;
+			margin:0 auto;
 		}
 		.axis line {
-			stroke:#333;
+			stroke:#ddd;
 			stroke-width:1;
+			stroke-opacity:0.5;
 			fill:none;
 		}
 		.axis text {
-			fill:#333;
+			fill:#fff;
 			text-anchor:end;
 			stroke:none;
 			font-size: 10px;
@@ -42,11 +44,33 @@
 		.me circle {
 			fill:gold;
 		}
+		.me .bg {
+			fill:#333;
+			stroke:#999;
+			stroke-width:1;
+			stroke-opacity:0.5;
+		}
+		.me .hive {
+			fill:#00aeff;
+			stroke:#999;
+			stroke-width:1;
+			stroke-opacity:0.5;
+		}
 		path {
 			fill:none;
 			stroke:#999;
 			stroke-width:1;
 			stroke-opacity:0.25;
+		}
+		path.selected {
+			stroke:#00aeff;
+			stroke-width:2;
+			stroke-opacity:1;
+		}
+		.server.selected circle {
+			stroke:#00aeff;
+			stroke-width:2;
+			stroke-opacity:1;
 		}
 		.server path {
 			stroke:#8bd8ff;
@@ -68,9 +92,9 @@
 		<a href="#" id="update">update</a>
 	</div>
 	<script>
-
+		
 		var WIDTH=768,
-			HEIGHT=600; //1024
+			HEIGHT=1024
 
 		var margins={
 			top:30,
@@ -109,6 +133,8 @@
 			return servers;
 		}();
 
+		var selected=data[5];
+
 		console.log("SERVERS",servers)
 
 		var xscale=d3.scale.linear().domain([0,1]).range([0,WIDTH-margins.right-margins.left]).clamp(true),
@@ -119,11 +145,11 @@
 					.append("svg")
 						.attr("width",WIDTH)
 						.attr("height",HEIGHT)
-						.on("click",function(e){
+						/*.on("click",function(e){
 							var x=d3.mouse(this)[0],
 								y=d3.mouse(this)[1];
 							console.log("POSITION:",xscale.invert(x),yscale.invert(y));
-						})
+						})*/
 						.append("g")
 							.attr("transform","translate("+margins.left+","+margins.top+")");
 
@@ -149,6 +175,10 @@
 						})
 						.attr("transform",function(d){
 							return "translate("+xscale(d.money)+","+yscale(d.lag)+")"
+						})
+						.on("click",function(d){
+							selectServer(d);
+							meMyself.update(d);
 						})
 
 		servers.append("circle")
@@ -204,6 +234,21 @@
 
 			
 		}
+		function selectServer(server) {
+			servers
+				.classed("selected",false)
+				.filter(function(d){
+					return server.name==d.name;
+				})
+				.classed("selected",true)
+
+			links.selectAll("path")
+				.classed("selected",false)
+				.filter(function(d){
+					return server.name==d.name;
+				})
+				.classed("selected",true)
+		}
 		function updateViz() {
 			servers
 				.transition()
@@ -248,18 +293,160 @@
 			update();
 			setTimeout(loop,1000)
 		}
+		loop();
 
+		
+		/*
+		me.append("circle")
+				.attr("cx",0)
+				.attr("cy",0)
+				.attr("r",20)
 
-		var me=svg.append("g")
+		*/
+
+		function MeMyself(d) {
+
+			var me=svg.append("g")
 					.datum(myself)
 					.attr("class","me")
 					.attr("transform",function(d){
 						return "translate("+xscale(d.x)+","+yscale(d.y)+")"
 					})
-		me.append("circle")
-				.attr("cx",0)
-				.attr("cy",0)
-				.attr("r",20)
+
+			var innerRadius=10,
+				outerRadius=50;
+
+			var angle = d3.scale.ordinal().domain(d3.range(4)).rangePoints([0, 2 * Math.PI]),
+				radius = d3.scale.linear().range([innerRadius, outerRadius]);
+
+			var line = d3.svg.line()
+				    .x(function(d) { return d.x; })
+				    .y(function(d) { return d.y; })
+				    
+
+			me.append("path")
+				.attr("class","bg")
+				.attr("d",function(){
+					return line([
+						projectOnUsersAxis(1),
+						projectOnLagAxis(1),
+						projectOnMoneyAxis(1)
+					])+"Z"
+				})
+
+			//line.interpolate("basis");
+			var axis=me.selectAll(".axis")
+				.data(d3.range(3))
+					.enter().append("g")
+					.attr("class", "axis")
+					.attr("transform", function(d) { return "rotate(" + degrees(angle(d)) + ")"; });
+
+			axis.append("line")
+				.attr("x1", radius.range()[0])
+				.attr("x2", radius.range()[1]);
+			/*
+			axis.append("text")
+				.attr("x",radius.range()[1])
+				.attr("y",0)
+				.attr("dy","-0.2em")
+				.style("text-anchor","end")
+				.text(function(d,i){
+					if(i===0) {
+						return "MONEY";
+					}
+					if(i===1) {
+						return "USERS";
+					}
+					if(i===2) {
+						return "LAG";
+					}
+				})
+			*/
+			
+
+			var hive=me.append("g")
+							.append("path")
+								.datum(d)
+								.attr("class","hive")
+								.attr("d",function(d){
+									return line([
+										projectOnUsersAxis(d.users),
+										projectOnLagAxis(d.lag),
+										projectOnMoneyAxis(d.money)
+									])+"Z";
+								});
+
+			this.update=function(d) {
+				hive
+					.datum(d)
+					.transition()
+					.duration(1000)
+					.attr("d",function(d){
+						return line([
+							projectOnUsersAxis(d.users),
+							projectOnLagAxis(d.lag),
+							projectOnMoneyAxis(d.money)
+						])+"Z";
+					});
+			}
+
+			function degrees(radians) {
+			  return radians / Math.PI * 180 - 90;
+			}
+
+			function generatePoints(d) {
+				var points=[
+					projectOnUsersAxis(d.users),
+					projectOnLagAxis(d.lag),
+					projectOnMoneyAxis(d.money)
+				];
+
+				return [
+					[
+						points[0],
+						points[1]
+					],
+
+					[
+						points[1],
+						points[2]
+					],
+
+					[
+						points[2],
+						points[0]
+					]
+				];
+			}
+			function projectOnUsersAxis(value) {
+				radius.domain([0,1]);
+				return {
+					x:radius(value)*Math.cos(deg2rad(30)),
+					y:radius(value)*Math.sin(deg2rad(30))
+				};
+			}
+
+			function projectOnLagAxis(value) {
+				radius.domain([0,1]);
+				return {
+					x:radius(value)*Math.cos(deg2rad(150)),
+					y:radius(value)*Math.sin(deg2rad(150))
+				};
+			}
+
+			function projectOnMoneyAxis(value) {
+				radius.domain([0,1]);
+				return {
+					x:radius(value)*Math.cos(deg2rad(270)),
+					y:radius(value)*Math.sin(deg2rad(270))
+				};
+			}
+			function deg2rad(angle) {
+				return (angle / 180) * Math.PI;
+			}
+		}
+		selectServer(selected);
+		meMyself=new MeMyself(selected);
 
 		d3.select("#update")
 			.on("click",function(){
