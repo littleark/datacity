@@ -23,7 +23,7 @@
 
 		}
 		#map {
-			width:768px;
+			width:100%;
 			margin:0 auto;
 		}
 		.axis line {
@@ -81,13 +81,11 @@
 	</style>
 </head>
 <body>
-	<div id="map">
-		
-	</div>
+	<div id="map"></div>
 	<script>
 
-		var WIDTH=768,
-			HEIGHT=1024
+		var WIDTH=window.innerWidth,
+			HEIGHT=window.innerHeight
 
 		var margins={
 			top:30,
