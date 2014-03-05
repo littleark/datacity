@@ -15,7 +15,7 @@
 			font-family: sans-serif;
 		}
 		svg {
-			
+			margin:0 auto;
 		}
 		svg text {
 			font-family: sans-serif;
@@ -23,7 +23,6 @@
 
 		}
 		#map {
-			width:100%;
 			margin:0 auto;
 		}
 		.axis line {
@@ -86,6 +85,10 @@
 
 		var WIDTH=window.innerWidth,
 			HEIGHT=window.innerHeight
+
+		WIDTH=Math.min(WIDTH,960)
+
+		d3.select("#map").style("width",WIDTH+"px")
 
 		var margins={
 			top:30,
