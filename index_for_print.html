@@ -72,7 +72,6 @@
 			stroke:#00aeff;
 			stroke-width:2;
 			stroke-opacity:1;
-			fill:#00aeff;
 		}
 		.server path {
 			stroke:#8bd8ff;
@@ -90,8 +89,8 @@
 
 		WIDTH=Math.min(WIDTH,960)
 
-		//WIDTH=595;
-		//HEIGHT=841;
+		WIDTH=595;
+		HEIGHT=841;
 
 		d3.select("#map").style("width",WIDTH+"px")
 
@@ -186,6 +185,11 @@
 					.attr("r",function(d){
 						return radius(d.users)
 					})
+					.style({
+						fill: "#999",
+						"fill-opacity": 0.7,
+						cursor: "pointer"
+					})
 
 		var line = d3.svg.line()
 				    .x(function(d) { return d.x; })
@@ -199,6 +203,12 @@
 				.data(data)
 				.enter()
 				.append("path")
+					.style({
+						fill:"none",
+						stroke:"#999",
+						"stroke-width":2,
+						"stroke-opacity":0.5
+					})
 					.attr("d",function(d) {
 						var points=[
 							{	
@@ -236,19 +246,43 @@
 		function selectServer(server) {
 			servers
 				.classed("selected",false)
+				.select("circle")
+				.style({
+					"stroke-width": 0
+				})
+
+			servers
 				.filter(function(d){
 					return server.name==d.name;
 				})
 				.classed("selected",true)
+				.select("circle")
+					.style({
+						fill:"#00aeff",
+						stroke: "#00aeff",
+						"stroke-width": 2,
+						"stroke-opacity": 1
+					})
 
 			links.selectAll("path")
 				.classed("selected",false)
+				.style({
+					fill:"none",
+					stroke:"#999",
+					"stroke-width":2,
+					"stroke-opacity":0.6
+				})
 				.filter(function(d){
 					return server.name==d.name;
 				})
 				.classed("selected",true)
+				.style({
+					stroke: "#00aeff",
+					"stroke-width": 2,
+					"stroke-opacity": 1
+				})
 		}
-		function updateViz(callback) {
+		function updateViz() {
 			servers
 				.transition()
 				.duration(1000)
@@ -260,13 +294,6 @@
 						.attr("r",function(d){
 							return radius(d.users)
 						})
-
-			function endall(transition, callback) { 
-				var n = 0; 
-				transition 
-					.each(function() { ++n; }) 
-					.each("end", function() { if (!--n) callback.apply(this, arguments); });
-			} 
 
 			links.selectAll("path")
 				.transition()
@@ -289,24 +316,17 @@
 						];
 						return line(points)
 					})
-					.call(endall, function() {
-						if(callback) {
-							callback();
-						}
-					});
 		}
-		function update(callback) {
+		function update() {
 			updateData();
-			updateViz(callback);
+			updateViz();
 		}
 
 		function loop() {
-			update(function(){
-				loop();
-			});
-			//setTimeout(loop,1000)
+			update();
+			setTimeout(loop,1000)
 		}
-		loop();
+		//loop();
 
 		
 		/*
@@ -339,6 +359,12 @@
 
 			me.append("path")
 				.attr("class","bg")
+				.style({
+					fill: "#333333",
+					stroke: "#999999",
+					"stroke-width": 1,
+					"stroke-opacity": 0.5
+				})
 				.attr("d",function(){
 					return line([
 						projectOnUsersAxis(1),
@@ -355,6 +381,12 @@
 					.attr("transform", function(d) { return "rotate(" + degrees(angle(d)) + ")"; });
 
 			axis.append("line")
+				.style({
+					stroke: "#ddd",
+					"stroke-width": 1,
+					"stroke-opacity": 0.5,
+					fill: "none"
+				})
 				.attr("x1", radius.range()[0])
 				.attr("x2", radius.range()[1]);
 			/*
@@ -380,6 +412,12 @@
 			var hive=me.append("g")
 							.append("path")
 								.datum(d)
+								.style({
+									fill: "#00aeff",
+									stroke: "#999",
+									"stroke-width": 1,
+									"stroke-opacity": 0.5
+								})
 								.attr("class","hive")
 								.attr("d",function(d){
 									return line([
@@ -458,7 +496,7 @@
 				return (angle / 180) * Math.PI;
 			}
 		}
-		selectServer(selected);
+		//selectServer(selected);
 		meMyself=new MeMyself(selected);
 
 		
