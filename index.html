@@ -57,6 +57,17 @@
 			stroke-width:1;
 			stroke-opacity:0.5;
 		}
+		.me.legend .bg {
+			fill:#000;
+		}
+		.me.legend .hive {
+			fill-opacity:0;
+			display: none;
+		}
+		.me.legend text {
+			fill:#999;
+			font-size: 9px;
+		}
 		path {
 			fill:none;
 			stroke:#999;
@@ -78,7 +89,38 @@
 			stroke:#8bd8ff;
 			stroke-width:2;
 		}
+		.yaxis path,
+		.yaxis line,
+		.xaxis path,
+		.xaxis line {
+			shape-rendering: crispEdges;
+			stroke:#999;
+		}
+		.yaxis text,
+		.xaxis text {
+			font-size:10px;
+			fill:#999;
+		}
 
+		#legend circle {
+			fill:none;
+			stroke:#fff;
+			stroke-width:1;
+			stroke-opacity:1;
+		}
+		#legend text {
+			fill: #999;
+			font-size: 10px;
+			text-transform: uppercase;
+			text-anchor:end;
+		}
+		#legend line {
+			fill: none;
+			stroke:#ddd;
+			stroke-width:1;
+			shape-rendering: crispEdges;
+			stroke-dasharray:1, 3;
+		}
 	</style>
 </head>
 <body>
@@ -96,10 +138,10 @@
 		d3.select("#map").style("width",WIDTH+"px")
 
 		var margins={
-			top:30,
-			bottom:30,
-			left:30,
-			right:30
+			top:40,
+			bottom:130,
+			left:70,
+			right:70
 		};
 
 		var data=function() {
@@ -140,7 +182,7 @@
 			yscale=d3.scale.linear().domain([0,1]).range([HEIGHT-margins.top-margins.bottom,0]).clamp(true),
 			radius=d3.scale.sqrt().domain([0,1]).range([2,30]);
 
-		var svg=d3.select("#map")
+		var osvg=d3.select("#map")
 					.append("svg")
 						.attr("width",WIDTH)
 						.attr("height",HEIGHT)
@@ -149,8 +191,9 @@
 								y=d3.mouse(this)[1];
 							console.log("POSITION:",xscale.invert(x),yscale.invert(y));
 						})*/
-						.append("g")
-							.attr("transform","translate("+margins.left+","+margins.top+")");
+		
+		var svg=osvg.append("g")
+				.attr("transform","translate("+margins.left+","+margins.top+")");
 
 		var myself={
 			x:0.5,
@@ -158,7 +201,15 @@
 		};
 
 
-		
+		svg.append("text")
+			.attr("x",xscale(0.5))
+			.attr("y",-20)
+			.style({
+				fill:"#999",
+				"font-size":"18px",
+				"text-anchor":"middle"
+			})
+			.text("SALEKHARD: REAL TIME MAP OF SERVERS")
 
 		var servers=svg.append("g")
 						.attr("id","servers")
@@ -216,6 +267,88 @@
 						];
 						return line(points)
 					})
+
+
+		var yAxis = d3.svg.axis()
+					    .scale(yscale)
+					    .orient("left")
+					    .tickFormat(function(d){
+					    	if(d==0) {
+					    		return "HIGH LATENCY SERVER";
+					    	}
+					    	
+					    	if(d==1) {
+					    		return "LOW LATENCY SERVER"
+					    	}
+					    })
+					    .ticks(1)
+
+		var yaxis=osvg.append("g")
+			    .attr("class", "yaxis")
+			    .attr("transform", "translate(30," + (margins.top) + ")");
+		yaxis
+			.call(yAxis)
+			.selectAll(".tick")
+			    .filter(function(d){
+			    	//console.log("------->",d)
+			    	return d!=0 && d!=0.5 && d!=1;
+			    })
+			    	.remove();
+		yaxis
+			.selectAll(".tick")
+			.selectAll("text")
+				.attr("dy","1.8em")
+				.attr("dx","0.8em")
+				.attr("transform", "rotate(90)")
+				.style("text-anchor", function(d){
+					if(d==0) {
+			    		return "end";
+			    	}
+			    	if(d==1) {
+			    		return "start"
+			    	}
+				});
+
+
+		var xAxis = d3.svg.axis()
+					    .scale(xscale)
+					    .orient("bottom")
+					    .tickFormat(function(d){
+					    	if(d==0) {
+					    		return "0.00 US$";
+					    	}
+					    	
+					    	if(d==1) {
+					    		return "100,000,000 US$"
+					    	}
+					    })
+					    .ticks(1)
+
+		var xaxis=osvg.append("g")
+			    .attr("class", "xaxis")
+			    .attr("transform", "translate("+margins.left+"," + (HEIGHT-30) + ")");
+		xaxis
+			.call(xAxis)
+			.selectAll(".tick")
+			.selectAll("text")
+			.style("text-anchor", function(d){
+					if(d==0) {
+			    		return "start";
+			    	}
+			    	if(d==1) {
+			    		return "end"
+			    	}
+				});
+
+		xaxis.append("text")
+				.attr("class","title")
+				.attr("x",xscale(0.5))
+				.attr("y",30)
+				.style("text-anchor","middle")
+				.text("MONEY TRANSFERRED")
+
+
+
 
 		function updateData() {
 			data.forEach(function(d){
@@ -317,20 +450,34 @@
 
 		*/
 
-		function MeMyself(d) {
+		function MeMyself(d,__options) {
+
+			var options={
+				innerRadius:10 || __options.innerRadius,
+				outerRadius:50 || __options.outerRadius
+			}
 
 			var me=svg.append("g")
-					.datum(myself)
+					.datum(__options.myself || myself)
 					.attr("class","me")
+					.classed("legend",__options.legend)
 					.attr("transform",function(d){
-						return "translate("+xscale(d.x)+","+yscale(d.y)+")"
+						return "translate("+xscale(d.x)+","+(yscale(d.y)+(__options.margins?__options.margins.y:0))+")"
 					})
 
-			var innerRadius=10,
-				outerRadius=50;
+			if(__options.title) {
+				me.append("text")
+					.attr("x",0)
+					.attr("y",options.outerRadius*0.8)
+					.style({
+						"font-size":"10px",
+						"text-anchor":"middle"
+					})
+					.text(__options.title)
+			}
 
 			var angle = d3.scale.ordinal().domain(d3.range(4)).rangePoints([0, 2 * Math.PI]),
-				radius = d3.scale.linear().range([innerRadius, outerRadius]);
+				radius = d3.scale.linear().range([options.innerRadius, options.outerRadius]);
 
 			var line = d3.svg.line()
 				    .x(function(d) { return d.x; })
@@ -357,24 +504,31 @@
 			axis.append("line")
 				.attr("x1", radius.range()[0])
 				.attr("x2", radius.range()[1]);
-			/*
-			axis.append("text")
-				.attr("x",radius.range()[1])
-				.attr("y",0)
-				.attr("dy","-0.2em")
-				.style("text-anchor","end")
-				.text(function(d,i){
-					if(i===0) {
-						return "MONEY";
-					}
-					if(i===1) {
-						return "USERS";
-					}
-					if(i===2) {
-						return "LAG";
-					}
-				})
-			*/
+			
+			if(__options.legend) {
+				axis.append("text")
+					.attr("x",radius.range()[1])
+					.attr("y",0)
+					.attr("dy","-0.2em")
+					.style("text-anchor","end")
+					.attr("transform",function(d,i){
+						if(i===2) {
+							return "translate("+(options.outerRadius+options.innerRadius)+",0)rotate(180)";
+						}
+						return "translate(0,0)";
+					})
+					.text(function(d,i){
+						if(i===0) {
+							return "MONEY";
+						}
+						if(i===1) {
+							return "USERS";
+						}
+						if(i===2) {
+							return "LATENCY";
+						}
+					})
+			}
 			
 
 			var hive=me.append("g")
@@ -459,12 +613,96 @@
 			}
 		}
 		selectServer(selected);
-		meMyself=new MeMyself(selected);
+		meMyself=new MeMyself(selected,{});
 
 		
+		meMyselfScale=new MeMyself(
+			{
+				users:0.5,
+				lag:0.5,
+				money:0.5
+			},
+			{
+				innerRadius:5,
+				outerRadius:200,
+				myself: {
+					x:0.9,
+					y:0
+				},
+				margins: {
+					x:0,
+					y:55
+				},
+				legend:1,
+				title:"CURRENT SERVER"
+			}
+		);
 
 
+		var howto=osvg
+					.append("g")
+					.attr("id","legend")
+					.attr("transform","translate("+(margins.left+50)+","+(HEIGHT-margins.bottom+80)+")");
 
+		howto.append("text")
+				.attr("x",0)
+				.attr("y",13)
+				.style("text-anchor","middle")
+				.text("CONNECTED USERS")
+
+		howto.append("circle")
+				.attr("cx",0)
+				.attr("cy",-radius(0.1))
+				.attr("r",radius(0.1))
+				//.style("fill",color(10))
+		
+
+		howto.append("circle")
+				.attr("cx",0)
+				.attr("cy",-radius(0.5))
+				.attr("r",radius(0.5))
+				//.style("fill",color(10))
+
+		
+		howto.append("circle")
+				.attr("cx",0)
+				.attr("cy",-radius(1))
+				.attr("r",radius(1))
+				//.style("fill",color(10))
+		var delta=30;
+		howto.append("text")
+				.attr("x",radius(1)+delta)
+				.attr("y",-radius(1)*2-2)
+				.text("1M")
+
+		howto.append("text")
+				.attr("x",radius(1)+delta)
+				.attr("y",-radius(0.5)*2-2)
+				.text("500k")
+
+		howto.append("text")
+				.attr("x",radius(1)+delta)
+				.attr("y",-radius(0.1)*2-2)
+				.text("10k")
+		
+		howto.append("line")
+				.attr("x1",0)
+				.attr("y1",-radius(1)*2)
+				.attr("x2",radius(1)+delta)
+				.attr("y2",-radius(1)*2)
+
+		howto.append("line")
+				.attr("x1",0)
+				.attr("y1",-radius(0.5)*2)
+				.attr("x2",radius(1)+delta)
+				.attr("y2",-radius(0.5)*2)
+
+		howto.append("line")
+				.attr("x1",0)
+				.attr("y1",-radius(0.1)*2)
+				.attr("x2",radius(1)+delta)
+				.attr("y2",-radius(0.1)*2)
+		
 	</script>
 </body>
 </html>
